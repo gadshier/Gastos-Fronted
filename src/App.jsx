@@ -1,120 +1,194 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { useEffect, useMemo, useState } from 'react'
 import './App.css'
+import ConfirmDialog from './components/ConfirmDialog'
+import FeedbackToast from './components/FeedbackToast'
+import GastoForm from './components/GastoForm'
+import GastosTable from './components/GastosTable'
+import MetricCard from './components/MetricCard'
+import {
+  API_BASE_URL,
+  actualizarGasto,
+  crearGasto,
+  eliminarGasto,
+  obtenerGastos,
+} from './services/gastosApi'
+import { formatearMoneda } from './utils/formatters'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [gastos, setGastos] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [toast, setToast] = useState({ message: '', type: 'success' })
+  const [editando, setEditando] = useState(null)
+  const [pendienteEliminar, setPendienteEliminar] = useState(null)
+
+  async function cargarGastos() {
+    try {
+      setLoading(true)
+      setError('')
+      const data = await obtenerGastos()
+      setGastos(data ?? [])
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    cargarGastos()
+  }, [])
+
+  useEffect(() => {
+    if (!toast.message) return undefined
+
+    const timeout = setTimeout(() => {
+      setToast({ message: '', type: 'success' })
+    }, 3200)
+
+    return () => clearTimeout(timeout)
+  }, [toast.message])
+
+  const metricas = useMemo(() => {
+    const total = gastos.reduce((acc, gasto) => acc + Number(gasto.Monto ?? 0), 0)
+
+    const categorias = gastos.reduce((acc, gasto) => {
+      const categoria = gasto.categoria || 'Sin categoría'
+      acc[categoria] = (acc[categoria] ?? 0) + 1
+      return acc
+    }, {})
+
+    const categoriaTop = Object.entries(categorias).sort((a, b) => b[1] - a[1])[0]
+
+    return {
+      total,
+      cantidad: gastos.length,
+      categoriaTop: categoriaTop
+        ? `${categoriaTop[0]} (${categoriaTop[1]})`
+        : 'Sin datos disponibles',
+    }
+  }, [gastos])
+
+  async function handleCreateOrUpdate(payload) {
+    try {
+      setSaving(true)
+      if (editando) {
+        await actualizarGasto(editando.Id, payload)
+        setToast({ message: 'Gasto actualizado correctamente.', type: 'success' })
+      } else {
+        await crearGasto(payload)
+        setToast({ message: 'Gasto creado correctamente.', type: 'success' })
+      }
+
+      setEditando(null)
+      await cargarGastos()
+    } catch (requestError) {
+      setToast({ message: requestError.message, type: 'error' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!pendienteEliminar) return
+
+    try {
+      setDeleting(true)
+      await eliminarGasto(pendienteEliminar.Id)
+      setToast({ message: 'Gasto eliminado correctamente.', type: 'success' })
+      setPendienteEliminar(null)
+      await cargarGastos()
+    } catch (requestError) {
+      setToast({ message: requestError.message, type: 'error' })
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
+    <main className="app-shell">
+      <header className="header card">
         <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
+          <p className="eyebrow">Control de gastos</p>
+          <h1>Dashboard financiero</h1>
+          <p className="subtitle">
+            Visualiza, crea y administra gastos con una experiencia limpia y escalable.
           </p>
         </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
+        <span className="api-chip">API: {API_BASE_URL}</span>
+      </header>
+
+      <section className="metrics-grid">
+        <MetricCard
+          title="Total de gastos"
+          value={formatearMoneda(metricas.total)}
+          helperText="Suma global registrada"
+          icon="💸"
+          tone="pink"
+        />
+        <MetricCard
+          title="Registros"
+          value={metricas.cantidad}
+          helperText="Gastos creados"
+          icon="📊"
+          tone="blue"
+        />
+        <MetricCard
+          title="Categoría más usada"
+          value={metricas.categoriaTop}
+          helperText="Listo para métricas futuras"
+          icon="🏷️"
+          tone="purple"
+        />
       </section>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      {error ? (
+        <div className="card error-banner">
+          <strong>No se pudieron cargar los gastos.</strong>
+          <span>{error}</span>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
+      ) : null}
+
+      <section className="content-grid">
+        <GastoForm
+          key={editando?.id ?? 'nuevo'}
+          initialData={editando}
+          onSubmit={handleCreateOrUpdate}
+          onCancel={editando ? () => setEditando(null) : null}
+          isSaving={saving}
+        />
+
+        <div>
+          <div className="section-header">
+            <h2>Listado de gastos</h2>
+            <p>Edita o elimina desde la tabla responsive.</p>
+          </div>
+          <GastosTable
+            gastos={gastos}
+            loading={loading}
+            onEdit={(gasto) => setEditando(gasto)}
+            onDelete={(gasto) => setPendienteEliminar(gasto)}
+          />
         </div>
       </section>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      <ConfirmDialog
+        open={Boolean(pendienteEliminar)}
+        title="¿Eliminar gasto?"
+        description={`Esta acción no se puede deshacer. Se eliminará "${pendienteEliminar?.descripcion ?? ''}".`}
+        onConfirm={handleDelete}
+        onCancel={() => setPendienteEliminar(null)}
+        loading={deleting}
+      />
+
+      <FeedbackToast
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ message: '', type: 'success' })}
+      />
+    </main>
   )
 }
 

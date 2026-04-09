@@ -1,16 +1,83 @@
-# React + Vite
+# Gastos Frontend (React + Vite)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend para consumir tu API REST de gastos (`/api/gastos`) y ofrecer una experiencia visual moderna, responsive y escalable.
 
-Currently, two official plugins are available:
+## Features incluidas
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Dashboard con métricas clave:
+  - Total de gastos
+  - Cantidad de registros
+  - Categoría más usada
+- Listado de gastos con tabla responsive
+- Crear y editar gastos con formulario reutilizable
+- Eliminar con confirmación modal
+- Feedback visual (loading, errores, toasts)
+- Estructura por componentes + servicios para API
 
-## React Compiler
+## Configuración rápida
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. Instala dependencias:
 
-## Expanding the ESLint configuration
+```bash
+npm install
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+2. Crea un archivo `.env` en la raíz del proyecto:
+
+```env
+VITE_API_BASE_URL=https://localhost:44364/api
+```
+
+3. Ejecuta en desarrollo:
+
+```bash
+npm run dev
+```
+
+## Estructura de carpetas
+
+```text
+src/
+  components/      # UI reutilizable (tabla, formulario, modal, tarjetas, toast)
+  services/        # Cliente HTTP para la API
+  utils/           # Formateadores de moneda/fecha
+  App.jsx          # Orquestación principal (estado, flujos CRUD)
+```
+
+## Backend y CORS
+
+Si el frontend corre en `http://localhost:5173` y el backend en `https://localhost:44364`, debes habilitar CORS en ASP.NET Web API.
+
+Ejemplo mínimo (WebApiConfig):
+
+```csharp
+using System.Web.Http;
+using System.Web.Http.Cors;
+
+public static class WebApiConfig
+{
+    public static void Register(HttpConfiguration config)
+    {
+        var cors = new EnableCorsAttribute("http://localhost:5173", "*", "*");
+        config.EnableCors(cors);
+
+        config.MapHttpAttributeRoutes();
+        config.Routes.MapHttpRoute(
+            name: "DefaultApi",
+            routeTemplate: "api/{controller}/{id}",
+            defaults: new { id = RouteParameter.Optional }
+        );
+    }
+}
+```
+
+> Recomendación: en producción, reemplaza `*` por orígenes y headers específicos.
+
+## Librerías sugeridas (opcionales, no obligatorias)
+
+- `axios` para interceptores y manejo centralizado de errores.
+- `react-hook-form` para formularios más robustos.
+- `zod` para validación declarativa.
+- `lucide-react` para iconografía consistente.
+
+La base actual ya funciona sin estas librerías para mantener la complejidad baja.
