@@ -52,7 +52,7 @@ function App() {
   }, [toast.message])
 
   const metricas = useMemo(() => {
-    const total = gastos.reduce((acc, gasto) => acc + Number(gasto.monto ?? 0), 0)
+    const total = gastos.reduce((acc, gasto) => acc + Number(gasto.Monto ?? 0), 0)
 
     const categorias = gastos.reduce((acc, gasto) => {
       const categoria = gasto.categoria || 'Sin categoría'
@@ -75,7 +75,7 @@ function App() {
     try {
       setSaving(true)
       if (editando) {
-        await actualizarGasto(editando.id, payload)
+        await actualizarGasto(editando.Id, payload)
         setToast({ message: 'Gasto actualizado correctamente.', type: 'success' })
       } else {
         await crearGasto(payload)
@@ -96,7 +96,7 @@ function App() {
 
     try {
       setDeleting(true)
-      await eliminarGasto(pendienteEliminar.id)
+      await eliminarGasto(pendienteEliminar.Id)
       setToast({ message: 'Gasto eliminado correctamente.', type: 'success' })
       setPendienteEliminar(null)
       await cargarGastos()

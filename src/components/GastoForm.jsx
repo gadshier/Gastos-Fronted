@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { fechaParaInput } from '../utils/formatters'
 
 function crearFormularioInicial(initialData) {
@@ -22,6 +22,10 @@ function crearFormularioInicial(initialData) {
 function GastoForm({ initialData, onSubmit, onCancel, isSaving }) {
   const [form, setForm] = useState(() => crearFormularioInicial(initialData))
   const [errors, setErrors] = useState({})
+
+  useEffect(() => {
+    setForm(crearFormularioInicial(initialData))
+  }, [initialData])
 
   const title = useMemo(
     () => (initialData ? 'Editar gasto' : 'Nuevo gasto'),
