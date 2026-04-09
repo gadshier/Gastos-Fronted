@@ -19,7 +19,7 @@ function crearFormularioInicial(initialData) {
   }
 }
 
-function GastoForm({ initialData, onSubmit, onCancel, isSaving }) {
+function GastoForm({ initialData, onSubmit, onCancel, isSaving, mode = 'create' }) {
   const [form, setForm] = useState(() => crearFormularioInicial(initialData))
   const [errors, setErrors] = useState({})
 
@@ -27,10 +27,13 @@ function GastoForm({ initialData, onSubmit, onCancel, isSaving }) {
     setForm(crearFormularioInicial(initialData))
   }, [initialData])
 
-  const title = useMemo(
-    () => (initialData ? 'Editar gasto' : 'Nuevo gasto'),
-    [initialData],
-  )
+  const isEditing = mode === 'edit'
+  const title = useMemo(() => (isEditing ? 'Editando gasto' : 'Nuevo gasto'), [isEditing])
+  const helperText = isEditing
+    ? 'Verifica los datos actuales y guarda los cambios del gasto seleccionado.'
+    : 'Completa la información para guardar un nuevo gasto.'
+  const submitLabel = isEditing ? 'Guardar cambios' : 'Guardar gasto'
+  const editingName = initialData?.descripcion || 'Gasto seleccionado'
 
   function validar(campos) {
     const nextErrors = {}
@@ -79,11 +82,17 @@ function GastoForm({ initialData, onSubmit, onCancel, isSaving }) {
   }
 
   return (
-    <form className="gasto-form card" onSubmit={handleSubmit} noValidate>
+    <form className={`gasto-form card ${isEditing ? 'is-editing' : 'is-creating'}`} onSubmit={handleSubmit} noValidate>
       <div className="form-header">
         <h2>{title}</h2>
-        <p>Completa la información para guardar el gasto.</p>
+        <p>{helperText}</p>
       </div>
+      {isEditing ? (
+        <div className="editing-context" role="status" aria-live="polite">
+          <p className="editing-context-label">Editar:</p>
+          <p className="editing-context-title">{editingName}</p>
+        </div>
+      ) : null}
 
       <label>
         Descripción
@@ -135,8 +144,8 @@ function GastoForm({ initialData, onSubmit, onCancel, isSaving }) {
             Cancelar
           </button>
         ) : null}
-        <button type="submit" className="btn primary" disabled={isSaving}>
-          {isSaving ? 'Guardando...' : 'Guardar gasto'}
+        <button type="submit" className={`btn ${isEditing ? 'warning' : 'primary'}`} disabled={isSaving}>
+          {isSaving ? 'Guardando...' : submitLabel}
         </button>
       </div>
     </form>
