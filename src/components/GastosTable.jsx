@@ -1,6 +1,6 @@
 import { formatearFecha, formatearMoneda } from '../utils/formatters'
 
-function GastosTable({ gastos, onEdit, onDelete, loading }) {
+function GastosTable({ gastos, onEdit, onDelete, loading, hasFilters = false, onClearFilters }) {
   if (loading) {
     return <div className="card empty-state">Cargando gastos...</div>
   }
@@ -8,8 +8,17 @@ function GastosTable({ gastos, onEdit, onDelete, loading }) {
   if (gastos.length === 0) {
     return (
       <div className="card empty-state">
-        <h3>Sin gastos registrados</h3>
-        <p>Agrega tu primer gasto para comenzar a construir tu dashboard.</p>
+        <h3>{hasFilters ? 'No hay resultados con estos filtros' : 'Sin gastos registrados'}</h3>
+        <p>
+          {hasFilters
+            ? 'Intenta ajustar los criterios o limpiar filtros para volver a ver todos los gastos.'
+            : 'Agrega tu primer gasto para comenzar a construir tu dashboard.'}
+        </p>
+        {hasFilters ? (
+          <button type="button" className="btn secondary" onClick={onClearFilters}>
+            Limpiar filtros
+          </button>
+        ) : null}
       </div>
     )
   }

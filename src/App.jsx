@@ -15,6 +15,60 @@ import {
 } from './services/gastosApi'
 import { formatearMoneda } from './utils/formatters'
 
+const FILTROS_INICIALES = {
+  mes: '',
+  fechaDesde: '',
+  fechaHasta: '',
+  categoriaId: '',
+  montoMin: '',
+  montoMax: '',
+  texto: '',
+  ordenarPor: 'fecha',
+  direccion: 'desc',
+}
+
+function formatearFechaISO(date) {
+  return date.toISOString().split('T')[0]
+}
+
+function obtenerRangoDeMes(mes) {
+  if (!mes) return { inicio: '', fin: '' }
+
+  const [year, month] = mes.split('-').map(Number)
+  const inicio = new Date(Date.UTC(year, month - 1, 1))
+  const fin = new Date(Date.UTC(year, month, 0))
+
+  return {
+    inicio: formatearFechaISO(inicio),
+    fin: formatearFechaISO(fin),
+  }
+}
+
+function construirParametrosFiltro(filtros) {
+  const parametros = {
+    categoriaId: filtros.categoriaId || undefined,
+    montoMin: filtros.montoMin || undefined,
+    montoMax: filtros.montoMax || undefined,
+    texto: filtros.texto.trim() || undefined,
+    ordenarPor: filtros.ordenarPor || 'fecha',
+    direccion: filtros.direccion || 'desc',
+  }
+
+  let fechaDesde = filtros.fechaDesde
+  let fechaHasta = filtros.fechaHasta
+
+  if (filtros.mes) {
+    const rangoMes = obtenerRangoDeMes(filtros.mes)
+    fechaDesde = fechaDesde || rangoMes.inicio
+    fechaHasta = fechaHasta || rangoMes.fin
+  }
+
+  if (fechaDesde) parametros.fechaDesde = fechaDesde
+  if (fechaHasta) parametros.fechaHasta = fechaHasta
+
+  return parametros
+}
+
 function App() {
   const [gastos, setGastos] = useState([])
   const [loading, setLoading] = useState(true)
@@ -26,6 +80,8 @@ function App() {
   const [toast, setToast] = useState({ message: '', type: 'success' })
   const [editando, setEditando] = useState(null)
   const [pendienteEliminar, setPendienteEliminar] = useState(null)
+  const [filtros, setFiltros] = useState(FILTROS_INICIALES)
+  const [filtrosAplicados, setFiltrosAplicados] = useState(FILTROS_INICIALES)
 
   async function cargarCategorias() {
     try {
@@ -39,11 +95,12 @@ function App() {
     }
   }
 
-  async function cargarGastos() {
+  async function cargarGastos(filtrosBusqueda = FILTROS_INICIALES) {
     try {
       setLoading(true)
       setError('')
-      const data = await obtenerGastos()
+      const parametros = construirParametrosFiltro(filtrosBusqueda)
+      const data = await obtenerGastos(parametros)
       setGastos(data ?? [])
     } catch (requestError) {
       setError(requestError.message)
@@ -54,8 +111,11 @@ function App() {
 
   useEffect(() => {
     cargarCategorias()
-    cargarGastos()
   }, [])
+
+  useEffect(() => {
+    cargarGastos(filtrosAplicados)
+  }, [filtrosAplicados])
 
   useEffect(() => {
     if (!toast.message) return undefined
@@ -87,6 +147,82 @@ function App() {
     }
   }, [gastos])
 
+  const filtrosActivos = useMemo(() => {
+    const chips = []
+    const categoriaActiva = categorias.find((categoria) => String(categoria.id) === String(filtrosAplicados.categoriaId))
+
+    if (filtrosAplicados.mes) chips.push(`Mes: ${filtrosAplicados.mes}`)
+    if (filtrosAplicados.fechaDesde) chips.push(`Desde: ${filtrosAplicados.fechaDesde}`)
+    if (filtrosAplicados.fechaHasta) chips.push(`Hasta: ${filtrosAplicados.fechaHasta}`)
+    if (filtrosAplicados.categoriaId) chips.push(`Categoría: ${categoriaActiva?.nombre ?? filtrosAplicados.categoriaId}`)
+    if (filtrosAplicados.montoMin) chips.push(`Monto mín: ${filtrosAplicados.montoMin}`)
+    if (filtrosAplicados.montoMax) chips.push(`Monto máx: ${filtrosAplicados.montoMax}`)
+    if (filtrosAplicados.texto.trim()) chips.push(`Texto: “${filtrosAplicados.texto.trim()}”`)
+    if (filtrosAplicados.ordenarPor !== FILTROS_INICIALES.ordenarPor || filtrosAplicados.direccion !== FILTROS_INICIALES.direccion) {
+      chips.push(`Orden: ${filtrosAplicados.ordenarPor} (${filtrosAplicados.direccion})`)
+    }
+
+    return chips
+  }, [categorias, filtrosAplicados])
+
+  const hayFiltrosActivos = filtrosActivos.length > 0
+
+  function actualizarFiltro(event) {
+    const { name, value } = event.target
+    setFiltros((prev) => ({ ...prev, [name]: value }))
+  }
+
+  function aplicarFiltros(nextFiltros = filtros) {
+    const montoMin = Number(nextFiltros.montoMin)
+    const montoMax = Number(nextFiltros.montoMax)
+
+    if (nextFiltros.montoMin && nextFiltros.montoMax && montoMin > montoMax) {
+      setToast({ message: 'El monto mínimo no puede ser mayor al monto máximo.', type: 'error' })
+      return
+    }
+
+    if (nextFiltros.fechaDesde && nextFiltros.fechaHasta && nextFiltros.fechaDesde > nextFiltros.fechaHasta) {
+      setToast({ message: 'La fecha desde no puede ser mayor que la fecha hasta.', type: 'error' })
+      return
+    }
+
+    setFiltrosAplicados({ ...nextFiltros, texto: nextFiltros.texto.trimStart() })
+  }
+
+  function handleSubmitFiltros(event) {
+    event.preventDefault()
+    aplicarFiltros(filtros)
+  }
+
+  function limpiarFiltros() {
+    setFiltros(FILTROS_INICIALES)
+    setFiltrosAplicados(FILTROS_INICIALES)
+  }
+
+  function aplicarEsteMes() {
+    const hoy = new Date()
+    const mes = `${hoy.getUTCFullYear()}-${String(hoy.getUTCMonth() + 1).padStart(2, '0')}`
+    const nextFiltros = { ...filtros, mes, fechaDesde: '', fechaHasta: '' }
+    setFiltros(nextFiltros)
+    aplicarFiltros(nextFiltros)
+  }
+
+  function aplicarUltimos30Dias() {
+    const hoy = new Date()
+    const desde = new Date()
+    desde.setUTCDate(hoy.getUTCDate() - 30)
+
+    const nextFiltros = {
+      ...filtros,
+      mes: '',
+      fechaDesde: formatearFechaISO(desde),
+      fechaHasta: formatearFechaISO(hoy),
+    }
+
+    setFiltros(nextFiltros)
+    aplicarFiltros(nextFiltros)
+  }
+
   async function handleCreateOrUpdate(payload) {
     try {
       setSaving(true)
@@ -99,7 +235,7 @@ function App() {
       }
 
       setEditando(null)
-      await cargarGastos()
+      await cargarGastos(filtrosAplicados)
     } catch (requestError) {
       setToast({ message: requestError.message, type: 'error' })
     } finally {
@@ -115,7 +251,7 @@ function App() {
       await eliminarGasto(pendienteEliminar.id)
       setToast({ message: 'Gasto eliminado correctamente.', type: 'success' })
       setPendienteEliminar(null)
-      await cargarGastos()
+      await cargarGastos(filtrosAplicados)
     } catch (requestError) {
       setToast({ message: requestError.message, type: 'error' })
     } finally {
@@ -142,24 +278,134 @@ function App() {
         <MetricCard
           title="Total de gastos"
           value={formatearMoneda(metricas.total)}
-          helperText="Suma global registrada"
+          helperText="Suma global del resultado filtrado"
           icon="💸"
           tone="pink"
         />
         <MetricCard
           title="Registros"
           value={metricas.cantidad}
-          helperText="Gastos creados"
+          helperText="Gastos visibles actualmente"
           icon="📊"
           tone="blue"
         />
         <MetricCard
           title="Categoría más usada"
           value={metricas.categoriaTop}
-          helperText="Listo para métricas futuras"
+          helperText="Calculado según filtros activos"
           icon="🏷️"
           tone="purple"
         />
+      </section>
+
+      <section className="card filters-panel">
+        <div className="filters-header">
+          <div>
+            <p className="eyebrow">Explorar gastos</p>
+            <h2>Filtros y búsqueda avanzada</h2>
+          </div>
+          <div className="quick-filters">
+            <button type="button" className="btn secondary" onClick={aplicarEsteMes}>Este mes</button>
+            <button type="button" className="btn secondary" onClick={aplicarUltimos30Dias}>Últimos 30 días</button>
+          </div>
+        </div>
+
+        <form className="filters-grid" onSubmit={handleSubmitFiltros}>
+          <label>
+            Buscar por descripción
+            <input
+              name="texto"
+              value={filtros.texto}
+              onChange={actualizarFiltro}
+              placeholder="Ej. supermercado, gasolina, farmacia"
+            />
+          </label>
+
+          <label>
+            Mes
+            <input type="month" name="mes" value={filtros.mes} onChange={actualizarFiltro} />
+          </label>
+
+          <label>
+            Fecha desde
+            <input type="date" name="fechaDesde" value={filtros.fechaDesde} onChange={actualizarFiltro} />
+          </label>
+
+          <label>
+            Fecha hasta
+            <input type="date" name="fechaHasta" value={filtros.fechaHasta} onChange={actualizarFiltro} />
+          </label>
+
+          <label>
+            Categoría
+            <select
+              name="categoriaId"
+              value={filtros.categoriaId}
+              onChange={actualizarFiltro}
+              disabled={categoriasLoading}
+            >
+              <option value="">Todas las categorías</option>
+              {categorias.map((categoria) => (
+                <option key={categoria.id} value={categoria.id}>{categoria.nombre}</option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Monto mínimo
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              name="montoMin"
+              value={filtros.montoMin}
+              onChange={actualizarFiltro}
+              placeholder="0.00"
+            />
+          </label>
+
+          <label>
+            Monto máximo
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              name="montoMax"
+              value={filtros.montoMax}
+              onChange={actualizarFiltro}
+              placeholder="0.00"
+            />
+          </label>
+
+          <label>
+            Ordenar por
+            <select name="ordenarPor" value={filtros.ordenarPor} onChange={actualizarFiltro}>
+              <option value="fecha">Fecha</option>
+              <option value="monto">Monto</option>
+            </select>
+          </label>
+
+          <label>
+            Dirección
+            <select name="direccion" value={filtros.direccion} onChange={actualizarFiltro}>
+              <option value="desc">Descendente</option>
+              <option value="asc">Ascendente</option>
+            </select>
+          </label>
+
+          <div className="filters-actions">
+            <button type="button" className="btn secondary" onClick={limpiarFiltros}>Limpiar filtros</button>
+            <button type="submit" className="btn primary">Aplicar filtros</button>
+          </div>
+        </form>
+
+        {hayFiltrosActivos ? (
+          <div className="active-chips" role="status" aria-live="polite">
+            {filtrosActivos.map((chip) => (
+              <span key={chip} className="chip">{chip}</span>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       {error ? (
@@ -184,11 +430,13 @@ function App() {
         <div>
           <div className="section-header">
             <h2>Listado de gastos</h2>
-            <p>Edita o elimina desde la tabla responsive.</p>
+            <p>{hayFiltrosActivos ? 'Resultados según filtros seleccionados.' : 'Edita o elimina desde la tabla responsive.'}</p>
           </div>
           <GastosTable
             gastos={gastos}
             loading={loading}
+            hasFilters={hayFiltrosActivos}
+            onClearFilters={limpiarFiltros}
             onEdit={(gasto) => setEditando(gasto)}
             onDelete={(gasto) => setPendienteEliminar(gasto)}
           />

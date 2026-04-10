@@ -125,6 +125,71 @@ h1 {
   font-weight: 700;
 }
 
+
+.filters-panel {
+  margin-top: 1rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.filters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.8rem;
+}
+
+.filters-header h2 {
+  margin: 0.3rem 0 0;
+  font-size: 1.1rem;
+}
+
+.quick-filters {
+  display: inline-flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.filters-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.filters-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.36rem;
+  font-weight: 600;
+  font-size: 0.86rem;
+}
+
+.filters-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  margin-top: 0.2rem;
+}
+
+.active-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.chip {
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+  color: #3730a3;
+  border-radius: 999px;
+  padding: 0.22rem 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
 .error-banner {
   margin-top: 1rem;
   border-color: #fecaca;
@@ -200,7 +265,9 @@ h1 {
 }
 
 .gasto-form input,
-.gasto-form select {
+.gasto-form select,
+.filters-grid input,
+.filters-grid select {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 0.62rem 0.72rem;
@@ -209,7 +276,8 @@ h1 {
   color: var(--text);
 }
 
-.gasto-form select {
+.gasto-form select,
+.filters-grid select {
   appearance: none;
   background-image: linear-gradient(45deg, transparent 50%, #6b7280 50%), linear-gradient(135deg, #6b7280 50%, transparent 50%);
   background-position: calc(100% - 18px) calc(50% + 1px), calc(100% - 12px) calc(50% + 1px);
@@ -219,12 +287,15 @@ h1 {
 }
 
 .gasto-form input:focus,
-.gasto-form select:focus {
+.gasto-form select:focus,
+.filters-grid input:focus,
+.filters-grid select:focus {
   outline: 2px solid var(--primary-soft);
   border-color: var(--primary);
 }
 
-.gasto-form select:disabled {
+.gasto-form select:disabled,
+.filters-grid select:disabled {
   background-color: #f9fafb;
   color: var(--muted);
 }
@@ -419,11 +490,39 @@ h1 {
   .content-grid {
     grid-template-columns: 1fr;
   }
+
+  .filters-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 700px) {
   .header {
     flex-direction: column;
+  }
+
+  .filters-header {
+    flex-direction: column;
+  }
+
+  .quick-filters {
+    width: 100%;
+  }
+
+  .quick-filters .btn {
+    flex: 1;
+  }
+
+  .filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filters-actions {
+    justify-content: stretch;
+  }
+
+  .filters-actions .btn {
+    flex: 1;
   }
 
   .edit-modal-header {

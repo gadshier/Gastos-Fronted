@@ -55,8 +55,16 @@ function normalizarCategoria(categoria) {
   }
 }
 
-export async function obtenerGastos() {
-  const gastos = await request('/gastos')
+export async function obtenerGastos(filtros = {}) {
+  const query = new URLSearchParams()
+
+  Object.entries(filtros).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return
+    query.append(key, String(value))
+  })
+
+  const path = query.toString() ? `/gastos?${query.toString()}` : '/gastos'
+  const gastos = await request(path)
   return (gastos ?? []).map(normalizarGasto)
 }
 
