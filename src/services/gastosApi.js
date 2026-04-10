@@ -35,8 +35,29 @@ async function request(path, options = {}) {
   return response.json()
 }
 
-export function obtenerGastos() {
-  return request('/gastos')
+function normalizarGasto(gasto) {
+  return {
+    id: gasto?.id ?? gasto?.Id,
+    descripcion: gasto?.descripcion ?? gasto?.Descripcion ?? '',
+    monto: gasto?.monto ?? gasto?.Monto ?? 0,
+    fecha: gasto?.fecha ?? gasto?.Fecha ?? '',
+    categoriaId: gasto?.categoriaId ?? gasto?.CategoriaId ?? null,
+    nombreCategoria: gasto?.nombreCategoria ?? gasto?.NombreCategoria ?? 'Sin categoría',
+  }
+}
+
+function normalizarCategoria(categoria) {
+  return {
+    id: categoria?.id ?? categoria?.Id,
+    nombre: categoria?.nombre ?? categoria?.Nombre ?? '',
+    descripcion: categoria?.descripcion ?? categoria?.Descripcion ?? '',
+    activo: categoria?.activo ?? categoria?.Activo ?? true,
+  }
+}
+
+export async function obtenerGastos() {
+  const gastos = await request('/gastos')
+  return (gastos ?? []).map(normalizarGasto)
 }
 
 export function crearGasto(gasto) {
@@ -57,6 +78,11 @@ export function eliminarGasto(id) {
   return request(`/gastos/${id}`, {
     method: 'DELETE',
   })
+}
+
+export async function obtenerCategorias() {
+  const categorias = await request('/categorias')
+  return (categorias ?? []).map(normalizarCategoria)
 }
 
 export { API_BASE_URL }

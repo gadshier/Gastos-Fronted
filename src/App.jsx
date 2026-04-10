@@ -10,6 +10,7 @@ import {
   actualizarGasto,
   crearGasto,
   eliminarGasto,
+  obtenerCategorias,
   obtenerGastos,
 } from './services/gastosApi'
 import { formatearMoneda } from './utils/formatters'
@@ -17,12 +18,26 @@ import { formatearMoneda } from './utils/formatters'
 function App() {
   const [gastos, setGastos] = useState([])
   const [loading, setLoading] = useState(true)
+  const [categorias, setCategorias] = useState([])
+  const [categoriasLoading, setCategoriasLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [toast, setToast] = useState({ message: '', type: 'success' })
   const [editando, setEditando] = useState(null)
   const [pendienteEliminar, setPendienteEliminar] = useState(null)
+
+  async function cargarCategorias() {
+    try {
+      setCategoriasLoading(true)
+      const data = await obtenerCategorias()
+      setCategorias((data ?? []).filter((categoria) => categoria.activo !== false))
+    } catch (requestError) {
+      setToast({ message: `No se pudieron cargar las categorías: ${requestError.message}`, type: 'error' })
+    } finally {
+      setCategoriasLoading(false)
+    }
+  }
 
   async function cargarGastos() {
     try {
@@ -38,6 +53,7 @@ function App() {
   }
 
   useEffect(() => {
+    cargarCategorias()
     cargarGastos()
   }, [])
 
@@ -52,15 +68,15 @@ function App() {
   }, [toast.message])
 
   const metricas = useMemo(() => {
-    const total = gastos.reduce((acc, gasto) => acc + Number(gasto.Monto ?? 0), 0)
+    const total = gastos.reduce((acc, gasto) => acc + Number(gasto.monto ?? 0), 0)
 
-    const categorias = gastos.reduce((acc, gasto) => {
-      const categoria = gasto.categoria || 'Sin categoría'
+    const categoriasPorUso = gastos.reduce((acc, gasto) => {
+      const categoria = gasto.nombreCategoria || 'Sin categoría'
       acc[categoria] = (acc[categoria] ?? 0) + 1
       return acc
     }, {})
 
-    const categoriaTop = Object.entries(categorias).sort((a, b) => b[1] - a[1])[0]
+    const categoriaTop = Object.entries(categoriasPorUso).sort((a, b) => b[1] - a[1])[0]
 
     return {
       total,
@@ -75,7 +91,7 @@ function App() {
     try {
       setSaving(true)
       if (editando) {
-        await actualizarGasto(editando.id ?? editando.Id, payload)
+        await actualizarGasto(editando.id, payload)
         setToast({ message: 'Gasto actualizado correctamente.', type: 'success' })
       } else {
         await crearGasto(payload)
@@ -96,7 +112,7 @@ function App() {
 
     try {
       setDeleting(true)
-      await eliminarGasto(pendienteEliminar.Id)
+      await eliminarGasto(pendienteEliminar.id)
       setToast({ message: 'Gasto eliminado correctamente.', type: 'success' })
       setPendienteEliminar(null)
       await cargarGastos()
@@ -107,7 +123,7 @@ function App() {
     }
   }
 
-  const gastoEnEdicionLabel = editando?.descripcion || editando?.categoria || `ID ${editando?.id ?? ''}`
+  const gastoEnEdicionLabel = editando?.descripcion || editando?.nombreCategoria || `ID ${editando?.id ?? ''}`
 
   return (
     <main className="app-shell">
@@ -160,6 +176,8 @@ function App() {
           onSubmit={handleCreateOrUpdate}
           onCancel={null}
           isSaving={saving}
+          categorias={categorias}
+          categoriasLoading={categoriasLoading}
           mode="create"
         />
 
@@ -171,15 +189,7 @@ function App() {
           <GastosTable
             gastos={gastos}
             loading={loading}
-            onEdit={(gasto) =>
-              setEditando({
-                id: gasto.id ?? gasto.Id,
-                descripcion: gasto.descripcion ?? gasto.Descripcion ?? '',
-                monto: gasto.monto ?? gasto.Monto ?? '',
-                fecha: gasto.fecha ?? gasto.Fecha ?? '',
-                categoria: gasto.categoria ?? gasto.Categoria ?? '',
-              })
-            }
+            onEdit={(gasto) => setEditando(gasto)}
             onDelete={(gasto) => setPendienteEliminar(gasto)}
           />
         </div>
@@ -211,6 +221,8 @@ function App() {
               onSubmit={handleCreateOrUpdate}
               onCancel={() => setEditando(null)}
               isSaving={saving}
+              categorias={categorias}
+              categoriasLoading={categoriasLoading}
               mode="edit"
             />
           </div>

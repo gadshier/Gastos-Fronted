@@ -29,13 +29,13 @@ function GastosTable({ gastos, onEdit, onDelete, loading }) {
         <tbody>
           {gastos.map((gasto) => (
             <tr key={gasto.id}>
-              <td data-label="Descripción">{gasto.Descripcion}</td>
+              <td data-label="Descripción">{gasto.descripcion}</td>
               <td data-label="Monto" className="amount-cell">
-                {formatearMoneda(gasto.Monto)}
+                {formatearMoneda(gasto.monto)}
               </td>
-              <td data-label="Fecha">{formatearFecha(gasto.Fecha)}</td>
+              <td data-label="Fecha">{formatearFecha(gasto.fecha)}</td>
               <td data-label="Categoría">
-                <span className="tag">{gasto.Categoria}</span>
+                <span className="tag">{gasto.nombreCategoria}</span>
               </td>
               <td data-label="Acciones">
                 <div className="row-actions">

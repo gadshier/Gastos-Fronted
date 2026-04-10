@@ -7,7 +7,7 @@ function crearFormularioInicial(initialData) {
       descripcion: '',
       monto: '',
       fecha: '',
-      categoria: '',
+      categoriaId: '',
     }
   }
 
@@ -15,11 +15,19 @@ function crearFormularioInicial(initialData) {
     descripcion: initialData.descripcion ?? '',
     monto: String(initialData.monto ?? ''),
     fecha: fechaParaInput(initialData.fecha),
-    categoria: initialData.categoria ?? '',
+    categoriaId: String(initialData.categoriaId ?? ''),
   }
 }
 
-function GastoForm({ initialData, onSubmit, onCancel, isSaving, mode = 'create' }) {
+function GastoForm({
+  initialData,
+  onSubmit,
+  onCancel,
+  isSaving,
+  categorias = [],
+  categoriasLoading = false,
+  mode = 'create',
+}) {
   const [form, setForm] = useState(() => crearFormularioInicial(initialData))
   const [errors, setErrors] = useState({})
 
@@ -51,8 +59,8 @@ function GastoForm({ initialData, onSubmit, onCancel, isSaving, mode = 'create' 
       nextErrors.fecha = 'Selecciona una fecha válida.'
     }
 
-    if (!campos.categoria.trim()) {
-      nextErrors.categoria = 'La categoría es obligatoria.'
+    if (!campos.categoriaId) {
+      nextErrors.categoriaId = 'La categoría es obligatoria.'
     }
 
     return nextErrors
@@ -77,7 +85,7 @@ function GastoForm({ initialData, onSubmit, onCancel, isSaving, mode = 'create' 
       descripcion: form.descripcion.trim(),
       monto: Number(form.monto),
       fecha: form.fecha,
-      categoria: form.categoria.trim(),
+      categoriaId: Number(form.categoriaId),
     })
   }
 
@@ -129,13 +137,20 @@ function GastoForm({ initialData, onSubmit, onCancel, isSaving, mode = 'create' 
 
       <label>
         Categoría
-        <input
-          name="categoria"
-          value={form.categoria}
+        <select
+          name="categoriaId"
+          value={form.categoriaId}
           onChange={handleChange}
-          placeholder="Ej. Alimentación"
-        />
-        {errors.categoria ? <span className="field-error">{errors.categoria}</span> : null}
+          disabled={categoriasLoading || categorias.length === 0}
+        >
+          <option value="">Selecciona una categoría</option>
+          {categorias.map((categoria) => (
+            <option key={categoria.id} value={categoria.id}>
+              {categoria.nombre}
+            </option>
+          ))}
+        </select>
+        {errors.categoriaId ? <span className="field-error">{errors.categoriaId}</span> : null}
       </label>
 
       <div className="form-actions">
@@ -144,7 +159,11 @@ function GastoForm({ initialData, onSubmit, onCancel, isSaving, mode = 'create' 
             Cancelar
           </button>
         ) : null}
-        <button type="submit" className={`btn ${isEditing ? 'warning' : 'primary'}`} disabled={isSaving}>
+        <button
+          type="submit"
+          className={`btn ${isEditing ? 'warning' : 'primary'}`}
+          disabled={isSaving || categoriasLoading || categorias.length === 0}
+        >
           {isSaving ? 'Guardando...' : submitLabel}
         </button>
       </div>
