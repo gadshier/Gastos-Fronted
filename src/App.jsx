@@ -279,7 +279,10 @@ function App() {
         setToast({ message: 'Gasto creado correctamente.', type: 'success' })
         setCrearAbierto(false)
       }
-      await cargarGastos(filtrosAplicados)
+      await Promise.all([
+        cargarGastos(filtrosAplicados),
+        cargarResumenCategorias(filtrosAplicados),
+      ])
     } catch (requestError) {
       setToast({ message: requestError.message, type: 'error' })
     } finally {
@@ -295,7 +298,10 @@ function App() {
       await eliminarGasto(pendienteEliminar.id)
       setToast({ message: 'Gasto eliminado correctamente.', type: 'success' })
       setPendienteEliminar(null)
-      await cargarGastos(filtrosAplicados)
+      await Promise.all([
+        cargarGastos(filtrosAplicados),
+        cargarResumenCategorias(filtrosAplicados),
+      ])
     } catch (requestError) {
       setToast({ message: requestError.message, type: 'error' })
     } finally {
