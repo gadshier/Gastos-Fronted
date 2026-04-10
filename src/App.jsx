@@ -75,7 +75,7 @@ function App() {
     try {
       setSaving(true)
       if (editando) {
-        await actualizarGasto(editando.Id, payload)
+        await actualizarGasto(editando.id ?? editando.Id, payload)
         setToast({ message: 'Gasto actualizado correctamente.', type: 'success' })
       } else {
         await crearGasto(payload)
@@ -106,6 +106,8 @@ function App() {
       setDeleting(false)
     }
   }
+
+  const gastoEnEdicionLabel = editando?.descripcion || editando?.categoria || `ID ${editando?.id ?? ''}`
 
   return (
     <main className="app-shell">
@@ -153,11 +155,12 @@ function App() {
 
       <section className="content-grid">
         <GastoForm
-          key={editando?.id ?? 'nuevo'}
-          initialData={editando}
+          key="nuevo"
+          initialData={null}
           onSubmit={handleCreateOrUpdate}
-          onCancel={editando ? () => setEditando(null) : null}
+          onCancel={null}
           isSaving={saving}
+          mode="create"
         />
 
         <div>
@@ -168,11 +171,51 @@ function App() {
           <GastosTable
             gastos={gastos}
             loading={loading}
-            onEdit={(gasto) => setEditando(gasto)}
+            onEdit={(gasto) =>
+              setEditando({
+                id: gasto.id ?? gasto.Id,
+                descripcion: gasto.descripcion ?? gasto.Descripcion ?? '',
+                monto: gasto.monto ?? gasto.Monto ?? '',
+                fecha: gasto.fecha ?? gasto.Fecha ?? '',
+                categoria: gasto.categoria ?? gasto.Categoria ?? '',
+              })
+            }
             onDelete={(gasto) => setPendienteEliminar(gasto)}
           />
         </div>
       </section>
+
+      {editando ? (
+        <div
+          className="modal-overlay edit-overlay"
+          onClick={() => setEditando(null)}
+          role="presentation"
+        >
+          <div className="card edit-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="edit-modal-header">
+              <div>
+                <p className="eyebrow">Modo edición</p>
+                <h3>Editar: {gastoEnEdicionLabel}</h3>
+              </div>
+              <button
+                type="button"
+                className="btn secondary close-btn"
+                onClick={() => setEditando(null)}
+              >
+                Cerrar
+              </button>
+            </div>
+            <GastoForm
+              key={editando?.id ?? 'edit'}
+              initialData={editando}
+              onSubmit={handleCreateOrUpdate}
+              onCancel={() => setEditando(null)}
+              isSaving={saving}
+              mode="edit"
+            />
+          </div>
+        </div>
+      ) : null}
 
       <ConfirmDialog
         open={Boolean(pendienteEliminar)}
