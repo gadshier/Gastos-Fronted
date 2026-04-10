@@ -226,6 +226,24 @@ h1 {
   gap: 0.7rem;
 }
 
+
+.table-header-actions {
+  display: inline-flex;
+  gap: 0.55rem;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.create-trigger {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  box-shadow: 0 10px 20px rgba(79, 70, 229, 0.28);
+}
+
+.create-trigger:hover {
+  filter: brightness(1.04);
+}
+
 .error-banner {
   margin-top: 1rem;
   border-color: #fecaca;
@@ -239,10 +257,6 @@ h1 {
 
 .content-grid {
   margin-top: 1rem;
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: 340px minmax(0, 1fr);
-  align-items: start;
 }
 
 .gasto-form {
@@ -528,11 +542,25 @@ h1 {
   white-space: nowrap;
 }
 
-@media (max-width: 960px) {
-  .content-grid {
-    grid-template-columns: 1fr;
-  }
 
+.modal-subtitle {
+  margin: 0.45rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.create-modal {
+  width: min(680px, 96vw);
+  border: 1px solid #c7d2fe;
+  background: linear-gradient(180deg, #f8faff 0%, #ffffff 55%);
+}
+
+.create-modal .gasto-form {
+  border-color: #c7d2fe;
+  background: #fff;
+}
+
+@media (max-width: 960px) {
   .filtros-principales {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -575,6 +603,14 @@ h1 {
   .table-head-ux {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .table-header-actions {
+    justify-content: stretch;
+  }
+
+  .table-header-actions .btn {
+    flex: 1;
   }
 
   .edit-modal-header {
