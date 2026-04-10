@@ -199,16 +199,34 @@ h1 {
   font-size: 0.9rem;
 }
 
-.gasto-form input {
+.gasto-form input,
+.gasto-form select {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 0.62rem 0.72rem;
   font-size: 0.95rem;
+  background-color: #fff;
+  color: var(--text);
 }
 
-.gasto-form input:focus {
+.gasto-form select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #6b7280 50%), linear-gradient(135deg, #6b7280 50%, transparent 50%);
+  background-position: calc(100% - 18px) calc(50% + 1px), calc(100% - 12px) calc(50% + 1px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 2.2rem;
+}
+
+.gasto-form input:focus,
+.gasto-form select:focus {
   outline: 2px solid var(--primary-soft);
   border-color: var(--primary);
+}
+
+.gasto-form select:disabled {
+  background-color: #f9fafb;
+  color: var(--muted);
 }
 
 .form-grid {
