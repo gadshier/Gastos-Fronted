@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
+import CategoryPieChart from './components/CategoryPieChart'
 import ConfirmDialog from './components/ConfirmDialog'
 import FeedbackToast from './components/FeedbackToast'
 import GastoForm from './components/GastoForm'
@@ -12,6 +13,7 @@ import {
   eliminarGasto,
   obtenerCategorias,
   obtenerGastos,
+  obtenerResumenPorCategoria,
 } from './services/gastosApi'
 import { formatearMoneda } from './utils/formatters'
 
@@ -78,6 +80,10 @@ function App() {
   const [mostrarAvanzados, setMostrarAvanzados] = useState(false)
   const [filtros, setFiltros] = useState(FILTROS_INICIALES)
   const [filtrosAplicados, setFiltrosAplicados] = useState(FILTROS_INICIALES)
+  const [crearAbierto, setCrearAbierto] = useState(false)
+  const [resumenCategorias, setResumenCategorias] = useState([])
+  const [resumenLoading, setResumenLoading] = useState(true)
+  const [resumenError, setResumenError] = useState('')
 
   const opcionesMes = useMemo(() => {
     const hoy = new Date()
@@ -100,6 +106,23 @@ function App() {
     }
   }
 
+  async function cargarResumenCategorias(filtrosBusqueda = FILTROS_INICIALES) {
+    try {
+      setResumenLoading(true)
+      setResumenError('')
+      const data = await obtenerResumenPorCategoria({
+        fechaDesde: filtrosBusqueda.fechaDesde,
+        fechaHasta: filtrosBusqueda.fechaHasta,
+      })
+      setResumenCategorias(data ?? [])
+    } catch (requestError) {
+      setResumenError(requestError.message)
+      setResumenCategorias([])
+    } finally {
+      setResumenLoading(false)
+    }
+  }
+
   async function cargarGastos(filtrosBusqueda = FILTROS_INICIALES) {
     try {
       setLoading(true)
@@ -119,6 +142,7 @@ function App() {
 
   useEffect(() => {
     cargarGastos(filtrosAplicados)
+    cargarResumenCategorias(filtrosAplicados)
   }, [filtrosAplicados])
 
   useEffect(() => {
@@ -249,13 +273,16 @@ function App() {
       if (editando) {
         await actualizarGasto(editando.id, payload)
         setToast({ message: 'Gasto actualizado correctamente.', type: 'success' })
+        setEditando(null)
       } else {
         await crearGasto(payload)
         setToast({ message: 'Gasto creado correctamente.', type: 'success' })
+        setCrearAbierto(false)
       }
-
-      setEditando(null)
-      await cargarGastos(filtrosAplicados)
+      await Promise.all([
+        cargarGastos(filtrosAplicados),
+        cargarResumenCategorias(filtrosAplicados),
+      ])
     } catch (requestError) {
       setToast({ message: requestError.message, type: 'error' })
     } finally {
@@ -271,7 +298,10 @@ function App() {
       await eliminarGasto(pendienteEliminar.id)
       setToast({ message: 'Gasto eliminado correctamente.', type: 'success' })
       setPendienteEliminar(null)
-      await cargarGastos(filtrosAplicados)
+      await Promise.all([
+        cargarGastos(filtrosAplicados),
+        cargarResumenCategorias(filtrosAplicados),
+      ])
     } catch (requestError) {
       setToast({ message: requestError.message, type: 'error' })
     } finally {
@@ -315,6 +345,22 @@ function App() {
           helperText="Calculado según filtros activos"
           icon="🏷️"
           tone="purple"
+        />
+      </section>
+
+
+      <section className="card category-chart-card">
+        <div className="section-header">
+          <div>
+            <p className="eyebrow">Análisis visual</p>
+            <h2>Gastos por categoría</h2>
+            <p>Distribución del monto total por categoría según los filtros activos.</p>
+          </div>
+        </div>
+        <CategoryPieChart
+          data={resumenCategorias}
+          loading={resumenLoading}
+          error={resumenError}
         />
       </section>
 
@@ -458,26 +504,20 @@ function App() {
       ) : null}
 
       <section className="content-grid">
-        <GastoForm
-          key="nuevo"
-          initialData={null}
-          onSubmit={handleCreateOrUpdate}
-          onCancel={null}
-          isSaving={saving}
-          categorias={categorias}
-          categoriasLoading={categoriasLoading}
-          mode="create"
-        />
-
         <div>
           <div className="section-header table-head-ux">
             <div>
               <h2>Listado de gastos</h2>
               <p>{hayFiltrosActivos ? 'Resultados según filtros aplicados.' : 'Edita o elimina desde la tabla responsive.'}</p>
             </div>
-            {hayFiltrosActivos ? (
-              <button type="button" className="btn secondary" onClick={limpiarFiltros}>Ver todos</button>
-            ) : null}
+            <div className="table-header-actions">
+              {hayFiltrosActivos ? (
+                <button type="button" className="btn secondary" onClick={limpiarFiltros}>Ver todos</button>
+              ) : null}
+              <button type="button" className="btn primary create-trigger" onClick={() => setCrearAbierto(true)}>
+                + Agregar gasto
+              </button>
+            </div>
           </div>
           <GastosTable
             gastos={gastos}
@@ -489,6 +529,40 @@ function App() {
           />
         </div>
       </section>
+
+      {crearAbierto ? (
+        <div
+          className="modal-overlay edit-overlay"
+          onClick={() => setCrearAbierto(false)}
+          role="presentation"
+        >
+          <div className="card edit-modal create-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="edit-modal-header">
+              <div>
+                <p className="eyebrow">Nuevo registro</p>
+                <h3>Nuevo gasto</h3>
+                <p className="modal-subtitle">Registra un nuevo movimiento para mantener tu control financiero al día.</p>
+              </div>
+              <button
+                type="button"
+                className="btn secondary close-btn"
+                onClick={() => setCrearAbierto(false)}
+              >
+                Cerrar
+              </button>
+            </div>
+            <GastoForm
+              initialData={null}
+              onSubmit={handleCreateOrUpdate}
+              onCancel={() => setCrearAbierto(false)}
+              isSaving={saving}
+              categorias={categorias}
+              categoriasLoading={categoriasLoading}
+              mode="create"
+            />
+          </div>
+        </div>
+      ) : null}
 
       {editando ? (
         <div
