@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
+import CategoryPieChart from './components/CategoryPieChart'
 import ConfirmDialog from './components/ConfirmDialog'
 import FeedbackToast from './components/FeedbackToast'
 import GastoForm from './components/GastoForm'
@@ -12,6 +13,7 @@ import {
   eliminarGasto,
   obtenerCategorias,
   obtenerGastos,
+  obtenerResumenPorCategoria,
 } from './services/gastosApi'
 import { formatearMoneda } from './utils/formatters'
 
@@ -79,6 +81,9 @@ function App() {
   const [filtros, setFiltros] = useState(FILTROS_INICIALES)
   const [filtrosAplicados, setFiltrosAplicados] = useState(FILTROS_INICIALES)
   const [crearAbierto, setCrearAbierto] = useState(false)
+  const [resumenCategorias, setResumenCategorias] = useState([])
+  const [resumenLoading, setResumenLoading] = useState(true)
+  const [resumenError, setResumenError] = useState('')
 
   const opcionesMes = useMemo(() => {
     const hoy = new Date()
@@ -101,6 +106,23 @@ function App() {
     }
   }
 
+  async function cargarResumenCategorias(filtrosBusqueda = FILTROS_INICIALES) {
+    try {
+      setResumenLoading(true)
+      setResumenError('')
+      const data = await obtenerResumenPorCategoria({
+        fechaDesde: filtrosBusqueda.fechaDesde,
+        fechaHasta: filtrosBusqueda.fechaHasta,
+      })
+      setResumenCategorias(data ?? [])
+    } catch (requestError) {
+      setResumenError(requestError.message)
+      setResumenCategorias([])
+    } finally {
+      setResumenLoading(false)
+    }
+  }
+
   async function cargarGastos(filtrosBusqueda = FILTROS_INICIALES) {
     try {
       setLoading(true)
@@ -120,6 +142,7 @@ function App() {
 
   useEffect(() => {
     cargarGastos(filtrosAplicados)
+    cargarResumenCategorias(filtrosAplicados)
   }, [filtrosAplicados])
 
   useEffect(() => {
@@ -316,6 +339,22 @@ function App() {
           helperText="Calculado según filtros activos"
           icon="🏷️"
           tone="purple"
+        />
+      </section>
+
+
+      <section className="card category-chart-card">
+        <div className="section-header">
+          <div>
+            <p className="eyebrow">Análisis visual</p>
+            <h2>Gastos por categoría</h2>
+            <p>Distribución del monto total por categoría según los filtros activos.</p>
+          </div>
+        </div>
+        <CategoryPieChart
+          data={resumenCategorias}
+          loading={resumenLoading}
+          error={resumenError}
         />
       </section>
 

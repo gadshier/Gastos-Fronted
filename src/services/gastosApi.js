@@ -46,6 +46,17 @@ function normalizarGasto(gasto) {
   }
 }
 
+
+function normalizarResumenCategoria(item) {
+  return {
+    categoriaId: item?.categoriaId ?? item?.CategoriaId ?? null,
+    nombreCategoria: item?.nombreCategoria ?? item?.NombreCategoria ?? 'Sin categoría',
+    total: Number(item?.total ?? item?.Total ?? 0),
+    cantidadMovimientos: Number(item?.cantidadMovimientos ?? item?.CantidadMovimientos ?? 0),
+    porcentaje: Number(item?.porcentaje ?? item?.Porcentaje ?? 0),
+  }
+}
+
 function normalizarCategoria(categoria) {
   return {
     id: categoria?.id ?? categoria?.Id,
@@ -91,6 +102,21 @@ export function eliminarGasto(id) {
 export async function obtenerCategorias() {
   const categorias = await request('/categorias')
   return (categorias ?? []).map(normalizarCategoria)
+}
+
+
+export async function obtenerResumenPorCategoria(filtros = {}) {
+  const query = new URLSearchParams()
+
+  if (filtros.fechaDesde) query.append('fechaDesde', filtros.fechaDesde)
+  if (filtros.fechaHasta) query.append('fechaHasta', filtros.fechaHasta)
+
+  const path = query.toString()
+    ? `/gastos/resumen/por-categoria?${query.toString()}`
+    : '/gastos/resumen/por-categoria'
+
+  const resumen = await request(path)
+  return (resumen ?? []).map(normalizarResumenCategoria)
 }
 
 export { API_BASE_URL }
