@@ -45,28 +45,23 @@ function obtenerRangoDeMes(mes) {
 }
 
 function construirParametrosFiltro(filtros) {
-  const parametros = {
+  return {
     categoriaId: filtros.categoriaId || undefined,
+    fechaDesde: filtros.fechaDesde || undefined,
+    fechaHasta: filtros.fechaHasta || undefined,
     montoMin: filtros.montoMin || undefined,
     montoMax: filtros.montoMax || undefined,
     texto: filtros.texto.trim() || undefined,
     ordenarPor: filtros.ordenarPor || 'fecha',
     direccion: filtros.direccion || 'desc',
   }
+}
 
-  let fechaDesde = filtros.fechaDesde
-  let fechaHasta = filtros.fechaHasta
-
-  if (filtros.mes) {
-    const rangoMes = obtenerRangoDeMes(filtros.mes)
-    fechaDesde = fechaDesde || rangoMes.inicio
-    fechaHasta = fechaHasta || rangoMes.fin
-  }
-
-  if (fechaDesde) parametros.fechaDesde = fechaDesde
-  if (fechaHasta) parametros.fechaHasta = fechaHasta
-
-  return parametros
+function etiquetaMes(mes) {
+  if (!mes) return ''
+  const [year, month] = mes.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, 1))
+  return new Intl.DateTimeFormat('es-MX', { month: 'long', year: 'numeric' }).format(date)
 }
 
 function App() {
@@ -80,8 +75,18 @@ function App() {
   const [toast, setToast] = useState({ message: '', type: 'success' })
   const [editando, setEditando] = useState(null)
   const [pendienteEliminar, setPendienteEliminar] = useState(null)
+  const [mostrarAvanzados, setMostrarAvanzados] = useState(false)
   const [filtros, setFiltros] = useState(FILTROS_INICIALES)
   const [filtrosAplicados, setFiltrosAplicados] = useState(FILTROS_INICIALES)
+
+  const opcionesMes = useMemo(() => {
+    const hoy = new Date()
+    return Array.from({ length: 18 }).map((_, index) => {
+      const date = new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth() - index, 1))
+      const value = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
+      return { value, label: etiquetaMes(value) }
+    })
+  }, [])
 
   async function cargarCategorias() {
     try {
@@ -99,8 +104,7 @@ function App() {
     try {
       setLoading(true)
       setError('')
-      const parametros = construirParametrosFiltro(filtrosBusqueda)
-      const data = await obtenerGastos(parametros)
+      const data = await obtenerGastos(construirParametrosFiltro(filtrosBusqueda))
       setGastos(data ?? [])
     } catch (requestError) {
       setError(requestError.message)
@@ -151,13 +155,13 @@ function App() {
     const chips = []
     const categoriaActiva = categorias.find((categoria) => String(categoria.id) === String(filtrosAplicados.categoriaId))
 
-    if (filtrosAplicados.mes) chips.push(`Mes: ${filtrosAplicados.mes}`)
-    if (filtrosAplicados.fechaDesde) chips.push(`Desde: ${filtrosAplicados.fechaDesde}`)
-    if (filtrosAplicados.fechaHasta) chips.push(`Hasta: ${filtrosAplicados.fechaHasta}`)
+    if (filtrosAplicados.mes) chips.push(`Mes: ${etiquetaMes(filtrosAplicados.mes)}`)
     if (filtrosAplicados.categoriaId) chips.push(`Categoría: ${categoriaActiva?.nombre ?? filtrosAplicados.categoriaId}`)
-    if (filtrosAplicados.montoMin) chips.push(`Monto mín: ${filtrosAplicados.montoMin}`)
-    if (filtrosAplicados.montoMax) chips.push(`Monto máx: ${filtrosAplicados.montoMax}`)
-    if (filtrosAplicados.texto.trim()) chips.push(`Texto: “${filtrosAplicados.texto.trim()}”`)
+    if (filtrosAplicados.texto.trim()) chips.push(`Búsqueda: “${filtrosAplicados.texto.trim()}”`)
+    if (filtrosAplicados.montoMin) chips.push(`Mín: ${filtrosAplicados.montoMin}`)
+    if (filtrosAplicados.montoMax) chips.push(`Máx: ${filtrosAplicados.montoMax}`)
+    if (filtrosAplicados.fechaDesde && !filtrosAplicados.mes) chips.push(`Desde: ${filtrosAplicados.fechaDesde}`)
+    if (filtrosAplicados.fechaHasta && !filtrosAplicados.mes) chips.push(`Hasta: ${filtrosAplicados.fechaHasta}`)
     if (filtrosAplicados.ordenarPor !== FILTROS_INICIALES.ordenarPor || filtrosAplicados.direccion !== FILTROS_INICIALES.direccion) {
       chips.push(`Orden: ${filtrosAplicados.ordenarPor} (${filtrosAplicados.direccion})`)
     }
@@ -169,7 +173,27 @@ function App() {
 
   function actualizarFiltro(event) {
     const { name, value } = event.target
-    setFiltros((prev) => ({ ...prev, [name]: value }))
+
+    setFiltros((prev) => {
+      const next = { ...prev, [name]: value }
+
+      if (name === 'mes') {
+        if (!value) {
+          next.fechaDesde = ''
+          next.fechaHasta = ''
+        } else {
+          const rango = obtenerRangoDeMes(value)
+          next.fechaDesde = rango.inicio
+          next.fechaHasta = rango.fin
+        }
+      }
+
+      if ((name === 'fechaDesde' || name === 'fechaHasta') && value) {
+        next.mes = ''
+      }
+
+      return next
+    })
   }
 
   function aplicarFiltros(nextFiltros = filtros) {
@@ -189,11 +213,6 @@ function App() {
     setFiltrosAplicados({ ...nextFiltros, texto: nextFiltros.texto.trimStart() })
   }
 
-  function handleSubmitFiltros(event) {
-    event.preventDefault()
-    aplicarFiltros(filtros)
-  }
-
   function limpiarFiltros() {
     setFiltros(FILTROS_INICIALES)
     setFiltrosAplicados(FILTROS_INICIALES)
@@ -202,7 +221,8 @@ function App() {
   function aplicarEsteMes() {
     const hoy = new Date()
     const mes = `${hoy.getUTCFullYear()}-${String(hoy.getUTCMonth() + 1).padStart(2, '0')}`
-    const nextFiltros = { ...filtros, mes, fechaDesde: '', fechaHasta: '' }
+    const rango = obtenerRangoDeMes(mes)
+    const nextFiltros = { ...filtros, mes, fechaDesde: rango.inicio, fechaHasta: rango.fin }
     setFiltros(nextFiltros)
     aplicarFiltros(nextFiltros)
   }
@@ -298,11 +318,11 @@ function App() {
         />
       </section>
 
-      <section className="card filters-panel">
-        <div className="filters-header">
+      <section className="card filtros-v2">
+        <div className="filtros-v2-header">
           <div>
             <p className="eyebrow">Explorar gastos</p>
-            <h2>Filtros y búsqueda avanzada</h2>
+            <h2>Filtros inteligentes</h2>
           </div>
           <div className="quick-filters">
             <button type="button" className="btn secondary" onClick={aplicarEsteMes}>Este mes</button>
@@ -310,30 +330,15 @@ function App() {
           </div>
         </div>
 
-        <form className="filters-grid" onSubmit={handleSubmitFiltros}>
-          <label>
-            Buscar por descripción
-            <input
-              name="texto"
-              value={filtros.texto}
-              onChange={actualizarFiltro}
-              placeholder="Ej. supermercado, gasolina, farmacia"
-            />
-          </label>
-
-          <label>
+        <div className="filtros-principales">
+          <label className="field-highlight">
             Mes
-            <input type="month" name="mes" value={filtros.mes} onChange={actualizarFiltro} />
-          </label>
-
-          <label>
-            Fecha desde
-            <input type="date" name="fechaDesde" value={filtros.fechaDesde} onChange={actualizarFiltro} />
-          </label>
-
-          <label>
-            Fecha hasta
-            <input type="date" name="fechaHasta" value={filtros.fechaHasta} onChange={actualizarFiltro} />
+            <select name="mes" value={filtros.mes} onChange={actualizarFiltro}>
+              <option value="">Todos los meses</option>
+              {opcionesMes.map((opcion) => (
+                <option key={opcion.value} value={opcion.value}>{opcion.label}</option>
+              ))}
+            </select>
           </label>
 
           <label>
@@ -351,53 +356,88 @@ function App() {
             </select>
           </label>
 
-          <label>
-            Monto mínimo
+          <label className="field-search">
+            Buscar
             <input
-              type="number"
-              step="0.01"
-              min="0"
-              name="montoMin"
-              value={filtros.montoMin}
+              name="texto"
+              value={filtros.texto}
               onChange={actualizarFiltro}
-              placeholder="0.00"
+              placeholder="Buscar por descripción"
             />
           </label>
 
-          <label>
-            Monto máximo
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              name="montoMax"
-              value={filtros.montoMax}
-              onChange={actualizarFiltro}
-              placeholder="0.00"
-            />
-          </label>
-
-          <label>
-            Ordenar por
-            <select name="ordenarPor" value={filtros.ordenarPor} onChange={actualizarFiltro}>
-              <option value="fecha">Fecha</option>
-              <option value="monto">Monto</option>
-            </select>
-          </label>
-
-          <label>
-            Dirección
-            <select name="direccion" value={filtros.direccion} onChange={actualizarFiltro}>
-              <option value="desc">Descendente</option>
-              <option value="asc">Ascendente</option>
-            </select>
-          </label>
-
-          <div className="filters-actions">
-            <button type="button" className="btn secondary" onClick={limpiarFiltros}>Limpiar filtros</button>
-            <button type="submit" className="btn primary">Aplicar filtros</button>
+          <div className="filtros-acciones-principales">
+            <button type="button" className="btn primary" onClick={() => aplicarFiltros(filtros)}>
+              Aplicar
+            </button>
+            <button type="button" className="btn secondary" onClick={limpiarFiltros}>
+              Limpiar
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => setMostrarAvanzados((prev) => !prev)}
+            >
+              {mostrarAvanzados ? 'Ocultar avanzados' : 'Más filtros'}
+            </button>
           </div>
-        </form>
+        </div>
+
+        {mostrarAvanzados ? (
+          <div className="filtros-avanzados">
+            <label>
+              Fecha desde
+              <input type="date" name="fechaDesde" value={filtros.fechaDesde} onChange={actualizarFiltro} />
+            </label>
+
+            <label>
+              Fecha hasta
+              <input type="date" name="fechaHasta" value={filtros.fechaHasta} onChange={actualizarFiltro} />
+            </label>
+
+            <label>
+              Monto mínimo
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                name="montoMin"
+                value={filtros.montoMin}
+                onChange={actualizarFiltro}
+                placeholder="0.00"
+              />
+            </label>
+
+            <label>
+              Monto máximo
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                name="montoMax"
+                value={filtros.montoMax}
+                onChange={actualizarFiltro}
+                placeholder="0.00"
+              />
+            </label>
+
+            <label>
+              Ordenar por
+              <select name="ordenarPor" value={filtros.ordenarPor} onChange={actualizarFiltro}>
+                <option value="fecha">Fecha</option>
+                <option value="monto">Monto</option>
+              </select>
+            </label>
+
+            <label>
+              Dirección
+              <select name="direccion" value={filtros.direccion} onChange={actualizarFiltro}>
+                <option value="desc">Descendente</option>
+                <option value="asc">Ascendente</option>
+              </select>
+            </label>
+          </div>
+        ) : null}
 
         {hayFiltrosActivos ? (
           <div className="active-chips" role="status" aria-live="polite">
@@ -405,7 +445,9 @@ function App() {
               <span key={chip} className="chip">{chip}</span>
             ))}
           </div>
-        ) : null}
+        ) : (
+          <p className="filters-placeholder">Sin filtros activos. Estás viendo todos los gastos.</p>
+        )}
       </section>
 
       {error ? (
@@ -428,9 +470,14 @@ function App() {
         />
 
         <div>
-          <div className="section-header">
-            <h2>Listado de gastos</h2>
-            <p>{hayFiltrosActivos ? 'Resultados según filtros seleccionados.' : 'Edita o elimina desde la tabla responsive.'}</p>
+          <div className="section-header table-head-ux">
+            <div>
+              <h2>Listado de gastos</h2>
+              <p>{hayFiltrosActivos ? 'Resultados según filtros aplicados.' : 'Edita o elimina desde la tabla responsive.'}</p>
+            </div>
+            {hayFiltrosActivos ? (
+              <button type="button" className="btn secondary" onClick={limpiarFiltros}>Ver todos</button>
+            ) : null}
           </div>
           <GastosTable
             gastos={gastos}
