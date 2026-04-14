@@ -226,6 +226,24 @@ h1 {
   gap: 0.7rem;
 }
 
+
+.table-header-actions {
+  display: inline-flex;
+  gap: 0.55rem;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.create-trigger {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  box-shadow: 0 10px 20px rgba(79, 70, 229, 0.28);
+}
+
+.create-trigger:hover {
+  filter: brightness(1.04);
+}
+
 .error-banner {
   margin-top: 1rem;
   border-color: #fecaca;
@@ -239,10 +257,6 @@ h1 {
 
 .content-grid {
   margin-top: 1rem;
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: 340px minmax(0, 1fr);
-  align-items: start;
 }
 
 .gasto-form {
@@ -528,11 +542,25 @@ h1 {
   white-space: nowrap;
 }
 
-@media (max-width: 960px) {
-  .content-grid {
-    grid-template-columns: 1fr;
-  }
 
+.modal-subtitle {
+  margin: 0.45rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.create-modal {
+  width: min(680px, 96vw);
+  border: 1px solid #c7d2fe;
+  background: linear-gradient(180deg, #f8faff 0%, #ffffff 55%);
+}
+
+.create-modal .gasto-form {
+  border-color: #c7d2fe;
+  background: #fff;
+}
+
+@media (max-width: 960px) {
   .filtros-principales {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -577,6 +605,14 @@ h1 {
     align-items: stretch;
   }
 
+  .table-header-actions {
+    justify-content: stretch;
+  }
+
+  .table-header-actions .btn {
+    flex: 1;
+  }
+
   .edit-modal-header {
     flex-direction: column;
     align-items: stretch;
@@ -609,5 +645,110 @@ h1 {
     content: attr(data-label) ': ';
     font-weight: 700;
     color: var(--muted);
+  }
+}
+
+.category-chart-card {
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.category-chart-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+}
+
+.pie-graphic {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.pie-svg {
+  width: min(340px, 100%);
+  overflow: visible;
+}
+
+.pie-svg path {
+  transition: transform 0.22s ease, filter 0.22s ease;
+  transform-origin: 120px 120px;
+}
+
+.pie-svg path.is-active {
+  transform: scale(1.035);
+  filter: brightness(1.06);
+}
+
+.pie-total-label {
+  fill: #6b7280;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pie-total-value {
+  fill: #111827;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pie-tooltip {
+  border: 1px solid #dbe4ff;
+  border-radius: 10px;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.84rem;
+  color: #1f2937;
+  background: #f8faff;
+  text-align: center;
+}
+
+.pie-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.pie-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  border: 1px solid #eef2ff;
+  border-radius: 10px;
+  padding: 0.5rem 0.6rem;
+}
+
+.legend-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.pie-legend p {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.pie-legend small {
+  color: #6b7280;
+}
+
+.chart-feedback {
+  margin: 0.25rem 0 0;
+  color: #6b7280;
+}
+
+.chart-feedback.error {
+  color: #b91c1c;
+}
+
+@media (max-width: 900px) {
+  .category-chart-layout {
+    grid-template-columns: 1fr;
   }
 }
