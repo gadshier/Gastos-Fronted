@@ -323,52 +323,11 @@ function App() {
         </div>
         <span className="api-chip">API: {API_BASE_URL}</span>
       </header>
-
-      <section className="metrics-grid">
-        <MetricCard
-          title="Total de gastos"
-          value={formatearMoneda(metricas.total)}
-          helperText="Suma global del resultado filtrado"
-          icon="💸"
-          tone="pink"
-        />
-        <MetricCard
-          title="Registros"
-          value={metricas.cantidad}
-          helperText="Gastos visibles actualmente"
-          icon="📊"
-          tone="blue"
-        />
-        <MetricCard
-          title="Categoría más usada"
-          value={metricas.categoriaTop}
-          helperText="Calculado según filtros activos"
-          icon="🏷️"
-          tone="purple"
-        />
-      </section>
-
-
-      <section className="card category-chart-card">
-        <div className="section-header">
-          <div>
-            <p className="eyebrow">Análisis visual</p>
-            <h2>Gastos por categoría</h2>
-            <p>Distribución del monto total por categoría según los filtros activos.</p>
-          </div>
-        </div>
-        <CategoryPieChart
-          data={resumenCategorias}
-          loading={resumenLoading}
-          error={resumenError}
-        />
-      </section>
-
       <section className="card filtros-v2">
         <div className="filtros-v2-header">
           <div>
             <p className="eyebrow">Explorar gastos</p>
-            <h2>Filtros inteligentes</h2>
+            <h2>Filtros</h2>
           </div>
           <div className="quick-filters">
             <button type="button" className="btn secondary" onClick={aplicarEsteMes}>Este mes</button>
@@ -495,6 +454,47 @@ function App() {
           <p className="filters-placeholder">Sin filtros activos. Estás viendo todos los gastos.</p>
         )}
       </section>
+      <section className="metrics-grid">
+        <MetricCard
+          title={`Total de gastos ${etiquetaMes(filtrosAplicados.mes)}`}
+          value={formatearMoneda(metricas.total)}
+          helperText="Suma global del resultado filtrado"
+          icon="💸"
+          tone="pink"
+        />
+        <MetricCard
+          title="Gastos"
+          value={metricas.cantidad}
+          helperText="Número de gastos registrados"
+          icon="📊"
+          tone="blue"
+        />
+        <MetricCard
+          title="Categoría más usada"
+          value={metricas.categoriaTop}
+          helperText="Calculado según filtros activos"
+          icon="🏷️"
+          tone="purple"
+        />
+      </section>
+
+
+      <section className="card category-chart-card">
+        <div className="section-header">
+          <div>
+            <p className="eyebrow">Análisis visual</p>
+            <h2>Gastos por categoría</h2>
+            <p>Distribución del monto total por categoría según los filtros activos.</p>
+          </div>
+        </div>
+        <CategoryPieChart
+          data={resumenCategorias}
+          loading={resumenLoading}
+          error={resumenError}
+        />
+      </section>
+
+      
 
       {error ? (
         <div className="card error-banner">
@@ -507,7 +507,11 @@ function App() {
         <div>
           <div className="section-header table-head-ux">
             <div>
-              <h2>Listado de gastos</h2>
+              <h2>
+                {filtrosAplicados.mes
+                  ? `Listado de gastos de ${etiquetaMes(filtrosAplicados.mes)}`
+                  : 'Listado de gastos'}
+              </h2>
               <p>{hayFiltrosActivos ? 'Resultados según filtros aplicados.' : 'Edita o elimina desde la tabla responsive.'}</p>
             </div>
             <div className="table-header-actions">
