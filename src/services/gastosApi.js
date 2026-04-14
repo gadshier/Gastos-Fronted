@@ -104,6 +104,13 @@ export async function obtenerCategorias() {
   return (categorias ?? []).map(normalizarCategoria)
 }
 
+export function crearCategoria(categoria) {
+  return request('/categorias', {
+    method: 'POST',
+    body: JSON.stringify(categoria),
+  })
+}
+
 
 export async function obtenerResumenPorCategoria(filtros = {}) {
   const query = new URLSearchParams()
