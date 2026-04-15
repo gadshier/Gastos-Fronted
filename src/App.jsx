@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import CategoryPieChart from './components/CategoryPieChart'
 import ConfirmDialog from './components/ConfirmDialog'
@@ -92,6 +92,8 @@ function App() {
     activo: true,
   })
   const [categoriaSaving, setCategoriaSaving] = useState(false)
+  const [mesDropdownOpen, setMesDropdownOpen] = useState(false)
+  const mesDropdownRef = useRef(null)
 
   const opcionesMes = useMemo(() => {
     const hoy = new Date()
@@ -203,6 +205,30 @@ function App() {
 
   const hayFiltrosActivos = filtrosActivos.length > 0
 
+  useEffect(() => {
+    if (!mesDropdownOpen) return undefined
+
+    function handleClickOutside(event) {
+      if (!mesDropdownRef.current?.contains(event.target)) {
+        setMesDropdownOpen(false)
+      }
+    }
+
+    function handleEscape(event) {
+      if (event.key === 'Escape') {
+        setMesDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [mesDropdownOpen])
+
   function actualizarFiltro(event) {
     const { name, value } = event.target
 
@@ -273,6 +299,12 @@ function App() {
 
     setFiltros(nextFiltros)
     aplicarFiltros(nextFiltros)
+  }
+
+  function seleccionarMes(value) {
+    const syntheticEvent = { target: { name: 'mes', value } }
+    actualizarFiltro(syntheticEvent)
+    setMesDropdownOpen(false)
   }
 
   async function handleCreateOrUpdate(payload) {
@@ -385,12 +417,42 @@ function App() {
         <div className="filtros-principales">
           <label className="field-highlight">
             Mes
-            <select name="mes" value={filtros.mes} onChange={actualizarFiltro}>
-              <option value="">Todos los meses</option>
-              {opcionesMes.map((opcion) => (
-                <option key={opcion.value} value={opcion.value}>{opcion.label}</option>
-              ))}
-            </select>
+            <div className="month-dropdown" ref={mesDropdownRef}>
+              <button
+                type="button"
+                className={`month-dropdown-trigger ${mesDropdownOpen ? 'is-open' : ''}`}
+                onClick={() => setMesDropdownOpen((prev) => !prev)}
+                aria-haspopup="listbox"
+                aria-expanded={mesDropdownOpen}
+              >
+                <span>{filtros.mes ? etiquetaMes(filtros.mes) : 'Todos los meses'}</span>
+                <span className="month-dropdown-chevron" aria-hidden="true">⌄</span>
+              </button>
+
+              <div className={`month-dropdown-panel ${mesDropdownOpen ? 'is-open' : ''}`} role="listbox" aria-label="Seleccionar mes">
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={!filtros.mes}
+                  className={`month-dropdown-item ${!filtros.mes ? 'selected' : ''}`}
+                  onClick={() => seleccionarMes('')}
+                >
+                  Todos los meses
+                </button>
+                {opcionesMes.map((opcion) => (
+                  <button
+                    key={opcion.value}
+                    type="button"
+                    role="option"
+                    aria-selected={filtros.mes === opcion.value}
+                    className={`month-dropdown-item ${filtros.mes === opcion.value ? 'selected' : ''}`}
+                    onClick={() => seleccionarMes(opcion.value)}
+                  >
+                    {opcion.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </label>
 
           <label>
