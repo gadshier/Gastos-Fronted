@@ -363,9 +363,9 @@ function App() {
       <header className="header card">
         <div>
           <p className="eyebrow">Control de gastos</p>
-          <h1>Dashboard financiero</h1>
+          <h1>Dashboard </h1>
           <p className="subtitle">
-            Visualiza, crea y administra gastos con una experiencia limpia y escalable.
+            Visualiza, crea y administra gastos.
           </p>
         </div>
         <span className="api-chip">API: {API_BASE_URL}</span>
