@@ -9,6 +9,7 @@ import MetricCard from './components/MetricCard'
 import {
   API_BASE_URL,
   actualizarGasto,
+  crearCategoria,
   crearGasto,
   eliminarGasto,
   obtenerCategorias,
@@ -84,6 +85,13 @@ function App() {
   const [resumenCategorias, setResumenCategorias] = useState([])
   const [resumenLoading, setResumenLoading] = useState(true)
   const [resumenError, setResumenError] = useState('')
+  const [crearCategoriaAbierto, setCrearCategoriaAbierto] = useState(false)
+  const [categoriaNueva, setCategoriaNueva] = useState({
+    nombre: '',
+    descripcion: '',
+    activo: true,
+  })
+  const [categoriaSaving, setCategoriaSaving] = useState(false)
 
   const opcionesMes = useMemo(() => {
     const hoy = new Date()
@@ -309,6 +317,45 @@ function App() {
     }
   }
 
+  function actualizarCategoriaNueva(event) {
+    const { name, value, type, checked } = event.target
+    setCategoriaNueva((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }))
+  }
+
+  function cerrarModalCategoria() {
+    setCrearCategoriaAbierto(false)
+    setCategoriaNueva({ nombre: '', descripcion: '', activo: true })
+  }
+
+  async function handleCrearCategoria(event) {
+    event.preventDefault()
+    const nombre = categoriaNueva.nombre.trim()
+
+    if (!nombre) {
+      setToast({ message: 'El nombre de la categoría es obligatorio.', type: 'error' })
+      return
+    }
+
+    try {
+      setCategoriaSaving(true)
+      await crearCategoria({
+        nombre,
+        descripcion: categoriaNueva.descripcion.trim(),
+        activo: categoriaNueva.activo,
+      })
+      setToast({ message: 'Categoría creada correctamente.', type: 'success' })
+      await cargarCategorias()
+      cerrarModalCategoria()
+    } catch (requestError) {
+      setToast({ message: requestError.message, type: 'error' })
+    } finally {
+      setCategoriaSaving(false)
+    }
+  }
+
   const gastoEnEdicionLabel = editando?.descripcion || editando?.nombreCategoria || `ID ${editando?.id ?? ''}`
 
   return (
@@ -316,9 +363,9 @@ function App() {
       <header className="header card">
         <div>
           <p className="eyebrow">Control de gastos</p>
-          <h1>Dashboard financiero</h1>
+          <h1>Dashboard </h1>
           <p className="subtitle">
-            Visualiza, crea y administra gastos con una experiencia limpia y escalable.
+            Visualiza, crea y administra gastos.
           </p>
         </div>
         <span className="api-chip">API: {API_BASE_URL}</span>
@@ -480,12 +527,19 @@ function App() {
 
 
       <section className="card category-chart-card">
-        <div className="section-header">
+        <div className="section-header category-header-actions">
           <div>
             <p className="eyebrow">Análisis visual</p>
             <h2>Gastos por categoría</h2>
             <p>Distribución del monto total por categoría según los filtros activos.</p>
           </div>
+          <button
+            type="button"
+            className="btn primary create-trigger"
+            onClick={() => setCrearCategoriaAbierto(true)}
+          >
+            + Añadir categoría
+          </button>
         </div>
         <CategoryPieChart
           data={resumenCategorias}
@@ -564,6 +618,76 @@ function App() {
               categoriasLoading={categoriasLoading}
               mode="create"
             />
+          </div>
+        </div>
+      ) : null}
+
+      {crearCategoriaAbierto ? (
+        <div
+          className="modal-overlay edit-overlay"
+          onClick={cerrarModalCategoria}
+          role="presentation"
+        >
+          <div className="card edit-modal create-modal category-create-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="edit-modal-header">
+              <div>
+                <p className="eyebrow">Nueva categoría</p>
+                <h3>Añadir categoría</h3>
+                <p className="modal-subtitle">Crea una categoría para usarla en nuevos gastos.</p>
+              </div>
+              <button
+                type="button"
+                className="btn secondary close-btn"
+                onClick={cerrarModalCategoria}
+                disabled={categoriaSaving}
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <form className="gasto-form category-form" onSubmit={handleCrearCategoria}>
+              <label>
+                Nombre
+                <input
+                  name="nombre"
+                  value={categoriaNueva.nombre}
+                  onChange={actualizarCategoriaNueva}
+                  placeholder="Ej. Transporte"
+                  maxLength={80}
+                  required
+                />
+              </label>
+
+              <label>
+                Descripción
+                <input
+                  name="descripcion"
+                  value={categoriaNueva.descripcion}
+                  onChange={actualizarCategoriaNueva}
+                  placeholder="Opcional"
+                  maxLength={180}
+                />
+              </label>
+
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  name="activo"
+                  checked={categoriaNueva.activo}
+                  onChange={actualizarCategoriaNueva}
+                />
+                Activa
+              </label>
+
+              <div className="form-actions">
+                <button type="button" className="btn secondary" onClick={cerrarModalCategoria} disabled={categoriaSaving}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn primary create-trigger" disabled={categoriaSaving}>
+                  {categoriaSaving ? 'Guardando...' : 'Guardar categoría'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       ) : null}
