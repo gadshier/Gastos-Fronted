@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import CategoryPieChart from './components/CategoryPieChart'
 import ConfirmDialog from './components/ConfirmDialog'
@@ -6,6 +6,7 @@ import FeedbackToast from './components/FeedbackToast'
 import GastoForm from './components/GastoForm'
 import GastosTable from './components/GastosTable'
 import MetricCard from './components/MetricCard'
+import MonthlyTrendChart from './components/MonthlyTrendChart'
 import {
   API_BASE_URL,
   actualizarGasto,
@@ -92,6 +93,9 @@ function App() {
     activo: true,
   })
   const [categoriaSaving, setCategoriaSaving] = useState(false)
+  const [mesDropdownOpen, setMesDropdownOpen] = useState(false)
+  const mesDropdownRef = useRef(null)
+  const [vistaActiva, setVistaActiva] = useState('resumen')
 
   const opcionesMes = useMemo(() => {
     const hoy = new Date()
@@ -183,6 +187,55 @@ function App() {
     }
   }, [gastos])
 
+  const serieMensual = useMemo(() => {
+    const acumuladoPorMes = gastos.reduce((acc, gasto) => {
+      const fecha = new Date(gasto.fecha)
+      if (Number.isNaN(fecha.getTime())) return acc
+
+      const value = `${fecha.getUTCFullYear()}-${String(fecha.getUTCMonth() + 1).padStart(2, '0')}`
+      acc[value] = (acc[value] ?? 0) + Number(gasto.monto ?? 0)
+      return acc
+    }, {})
+
+    const mesesOrdenados = Object.entries(acumuladoPorMes).sort(([mesA], [mesB]) => mesA.localeCompare(mesB))
+
+    return mesesOrdenados.map(([value, total], index, entries) => {
+      const anterior = index > 0 ? Number(entries[index - 1][1] ?? 0) : null
+      const variation = anterior == null ? null : total - anterior
+      const variationPct = anterior == null || anterior === 0 ? null : (variation / anterior) * 100
+
+      return {
+        value,
+        label: etiquetaMes(value),
+        shortLabel: etiquetaMes(value).split(' ')[0].slice(0, 3),
+        total,
+        variation,
+        variationPct,
+        estado: variation == null ? 'neutral' : variation > 0 ? 'up' : variation < 0 ? 'down' : 'neutral',
+      }
+    })
+  }, [gastos])
+
+  const metricasComparativo = useMemo(() => {
+    if (!serieMensual.length) {
+      return {
+        mayor: null,
+        menor: null,
+        promedio: 0,
+        variacionAcumulada: null,
+      }
+    }
+
+    const mayor = serieMensual.reduce((prev, current) => (current.total > prev.total ? current : prev), serieMensual[0])
+    const menor = serieMensual.reduce((prev, current) => (current.total < prev.total ? current : prev), serieMensual[0])
+    const promedio = serieMensual.reduce((acc, mes) => acc + mes.total, 0) / serieMensual.length
+    const inicio = serieMensual[0].total
+    const cierre = serieMensual[serieMensual.length - 1].total
+    const variacionAcumulada = inicio === 0 ? null : ((cierre - inicio) / inicio) * 100
+
+    return { mayor, menor, promedio, variacionAcumulada }
+  }, [serieMensual])
+
   const filtrosActivos = useMemo(() => {
     const chips = []
     const categoriaActiva = categorias.find((categoria) => String(categoria.id) === String(filtrosAplicados.categoriaId))
@@ -202,6 +255,30 @@ function App() {
   }, [categorias, filtrosAplicados])
 
   const hayFiltrosActivos = filtrosActivos.length > 0
+
+  useEffect(() => {
+    if (!mesDropdownOpen) return undefined
+
+    function handleClickOutside(event) {
+      if (!mesDropdownRef.current?.contains(event.target)) {
+        setMesDropdownOpen(false)
+      }
+    }
+
+    function handleEscape(event) {
+      if (event.key === 'Escape') {
+        setMesDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [mesDropdownOpen])
 
   function actualizarFiltro(event) {
     const { name, value } = event.target
@@ -273,6 +350,12 @@ function App() {
 
     setFiltros(nextFiltros)
     aplicarFiltros(nextFiltros)
+  }
+
+  function seleccionarMes(value) {
+    const syntheticEvent = { target: { name: 'mes', value } }
+    actualizarFiltro(syntheticEvent)
+    setMesDropdownOpen(false)
   }
 
   async function handleCreateOrUpdate(payload) {
@@ -385,12 +468,42 @@ function App() {
         <div className="filtros-principales">
           <label className="field-highlight">
             Mes
-            <select name="mes" value={filtros.mes} onChange={actualizarFiltro}>
-              <option value="">Todos los meses</option>
-              {opcionesMes.map((opcion) => (
-                <option key={opcion.value} value={opcion.value}>{opcion.label}</option>
-              ))}
-            </select>
+            <div className="month-dropdown" ref={mesDropdownRef}>
+              <button
+                type="button"
+                className={`month-dropdown-trigger ${mesDropdownOpen ? 'is-open' : ''}`}
+                onClick={() => setMesDropdownOpen((prev) => !prev)}
+                aria-haspopup="listbox"
+                aria-expanded={mesDropdownOpen}
+              >
+                <span>{filtros.mes ? etiquetaMes(filtros.mes) : 'Todos los meses'}</span>
+                <span className="month-dropdown-chevron" aria-hidden="true">⌄</span>
+              </button>
+
+              <div className={`month-dropdown-panel ${mesDropdownOpen ? 'is-open' : ''}`} role="listbox" aria-label="Seleccionar mes">
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={!filtros.mes}
+                  className={`month-dropdown-item ${!filtros.mes ? 'selected' : ''}`}
+                  onClick={() => seleccionarMes('')}
+                >
+                  Todos los meses
+                </button>
+                {opcionesMes.map((opcion) => (
+                  <button
+                    key={opcion.value}
+                    type="button"
+                    role="option"
+                    aria-selected={filtros.mes === opcion.value}
+                    className={`month-dropdown-item ${filtros.mes === opcion.value ? 'selected' : ''}`}
+                    onClick={() => seleccionarMes(opcion.value)}
+                  >
+                    {opcion.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </label>
 
           <label>
@@ -501,52 +614,148 @@ function App() {
           <p className="filters-placeholder">Sin filtros activos. Estás viendo todos los gastos.</p>
         )}
       </section>
-      <section className="metrics-grid">
-        <MetricCard
-          title={`Total de gastos ${etiquetaMes(filtrosAplicados.mes)}`}
-          value={formatearMoneda(metricas.total)}
-          helperText="Suma global del resultado filtrado"
-          icon="💸"
-          tone="pink"
-        />
-        <MetricCard
-          title="Gastos"
-          value={metricas.cantidad}
-          helperText="Número de gastos registrados"
-          icon="📊"
-          tone="blue"
-        />
-        <MetricCard
-          title="Categoría más usada"
-          value={metricas.categoriaTop}
-          helperText="Calculado según filtros activos"
-          icon="🏷️"
-          tone="purple"
-        />
+      <section className="view-tabs card" aria-label="Cambiar vista del dashboard">
+        <button
+          type="button"
+          className={`view-tab-btn ${vistaActiva === 'resumen' ? 'active' : ''}`}
+          onClick={() => setVistaActiva('resumen')}
+        >
+          Resumen
+        </button>
+        <button
+          type="button"
+          className={`view-tab-btn ${vistaActiva === 'comparativo' ? 'active' : ''}`}
+          onClick={() => setVistaActiva('comparativo')}
+        >
+          Comparativo mensual
+        </button>
       </section>
 
+      {vistaActiva === 'resumen' ? (
+        <>
+          <section className="metrics-grid">
+            <MetricCard
+              title={`Total de gastos ${etiquetaMes(filtrosAplicados.mes)}`}
+              value={formatearMoneda(metricas.total)}
+              helperText="Suma global del resultado filtrado"
+              icon="💸"
+              tone="pink"
+            />
+            <MetricCard
+              title="Gastos"
+              value={metricas.cantidad}
+              helperText="Número de gastos registrados"
+              icon="📊"
+              tone="blue"
+            />
+            <MetricCard
+              title="Categoría más usada"
+              value={metricas.categoriaTop}
+              helperText="Calculado según filtros activos"
+              icon="🏷️"
+              tone="purple"
+            />
+          </section>
 
-      <section className="card category-chart-card">
-        <div className="section-header category-header-actions">
-          <div>
-            <p className="eyebrow">Análisis visual</p>
-            <h2>Gastos por categoría</h2>
-            <p>Distribución del monto total por categoría según los filtros activos.</p>
+          <section className="card category-chart-card">
+            <div className="section-header category-header-actions">
+              <div>
+                <p className="eyebrow">Análisis visual</p>
+                <h2>Gastos por categoría</h2>
+                <p>Distribución del monto total por categoría según los filtros activos.</p>
+              </div>
+              <button
+                type="button"
+                className="btn primary create-trigger"
+                onClick={() => setCrearCategoriaAbierto(true)}
+              >
+                + Añadir categoría
+              </button>
+            </div>
+            <CategoryPieChart
+              data={resumenCategorias}
+              loading={resumenLoading}
+              error={resumenError}
+            />
+          </section>
+        </>
+      ) : (
+        <section className="monthly-view">
+          <div className="metrics-grid monthly-metrics-grid">
+            <MetricCard
+              title="Mes con mayor gasto"
+              value={metricasComparativo.mayor ? `${metricasComparativo.mayor.label}` : 'Sin datos'}
+              helperText={metricasComparativo.mayor ? formatearMoneda(metricasComparativo.mayor.total) : 'No hay gastos filtrados'}
+              icon="📈"
+              tone="pink"
+            />
+            <MetricCard
+              title="Mes con menor gasto"
+              value={metricasComparativo.menor ? `${metricasComparativo.menor.label}` : 'Sin datos'}
+              helperText={metricasComparativo.menor ? formatearMoneda(metricasComparativo.menor.total) : 'No hay gastos filtrados'}
+              icon="📉"
+              tone="blue"
+            />
+            <MetricCard
+              title="Promedio mensual"
+              value={formatearMoneda(metricasComparativo.promedio)}
+              helperText="Promedio dentro del rango filtrado"
+              icon="🧮"
+              tone="purple"
+            />
+            <MetricCard
+              title="Variación acumulada"
+              value={metricasComparativo.variacionAcumulada == null
+                ? '—'
+                : `${metricasComparativo.variacionAcumulada >= 0 ? '+' : ''}${metricasComparativo.variacionAcumulada.toFixed(1)}%`}
+              helperText="Del primer al último mes visible"
+              icon="⏱️"
+              tone="teal"
+            />
           </div>
-          <button
-            type="button"
-            className="btn primary create-trigger"
-            onClick={() => setCrearCategoriaAbierto(true)}
-          >
-            + Añadir categoría
-          </button>
-        </div>
-        <CategoryPieChart
-          data={resumenCategorias}
-          loading={resumenLoading}
-          error={resumenError}
-        />
-      </section>
+
+          <section className="card monthly-chart-card">
+            <div className="section-header">
+              <div>
+                <p className="eyebrow">Línea de tiempo</p>
+                <h2>Evolución mensual de gastos</h2>
+                <p>Visualiza tendencias y compara variaciones mes a mes con los filtros activos.</p>
+              </div>
+            </div>
+            <MonthlyTrendChart data={serieMensual} loading={loading} />
+          </section>
+
+          <section className="card monthly-breakdown-card">
+            <div className="section-header">
+              <div>
+                <p className="eyebrow">Comparativo</p>
+                <h2>Detalle por mes</h2>
+              </div>
+            </div>
+            {loading ? (
+              <p className="chart-feedback">Calculando comparativo...</p>
+            ) : serieMensual.length ? (
+              <div className="monthly-breakdown-list">
+                {serieMensual.map((mes) => (
+                  <article key={mes.value} className="monthly-breakdown-item">
+                    <div>
+                      <p className="monthly-breakdown-label">{mes.label}</p>
+                      <strong>{formatearMoneda(mes.total)}</strong>
+                    </div>
+                    <span className={`variation-pill ${mes.estado}`}>
+                      {mes.variation == null
+                        ? 'Sin base de comparación'
+                        : `${mes.variation >= 0 ? '+' : ''}${formatearMoneda(mes.variation)} (${mes.variationPct?.toFixed(1) ?? '0.0'}%)`}
+                    </span>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="chart-feedback">No hay datos para comparar meses con los filtros actuales.</p>
+            )}
+          </section>
+        </section>
+      )}
 
       
 
@@ -557,36 +766,38 @@ function App() {
         </div>
       ) : null}
 
-      <section className="content-grid">
-        <div>
-          <div className="section-header table-head-ux">
-            <div>
-              <h2>
-                {filtrosAplicados.mes
-                  ? `Listado de gastos de ${etiquetaMes(filtrosAplicados.mes)}`
-                  : 'Listado de gastos'}
-              </h2>
-              <p>{hayFiltrosActivos ? 'Resultados según filtros aplicados.' : 'Edita o elimina desde la tabla responsive.'}</p>
+      {vistaActiva === 'resumen' ? (
+        <section className="content-grid">
+          <div>
+            <div className="section-header table-head-ux">
+              <div>
+                <h2>
+                  {filtrosAplicados.mes
+                    ? `Listado de gastos de ${etiquetaMes(filtrosAplicados.mes)}`
+                    : 'Listado de gastos'}
+                </h2>
+                <p>{hayFiltrosActivos ? 'Resultados según filtros aplicados.' : 'Edita o elimina desde la tabla responsive.'}</p>
+              </div>
+              <div className="table-header-actions">
+                {hayFiltrosActivos ? (
+                  <button type="button" className="btn secondary" onClick={limpiarFiltros}>Ver todos</button>
+                ) : null}
+                <button type="button" className="btn primary create-trigger" onClick={() => setCrearAbierto(true)}>
+                  + Agregar gasto
+                </button>
+              </div>
             </div>
-            <div className="table-header-actions">
-              {hayFiltrosActivos ? (
-                <button type="button" className="btn secondary" onClick={limpiarFiltros}>Ver todos</button>
-              ) : null}
-              <button type="button" className="btn primary create-trigger" onClick={() => setCrearAbierto(true)}>
-                + Agregar gasto
-              </button>
-            </div>
+            <GastosTable
+              gastos={gastos}
+              loading={loading}
+              hasFilters={hayFiltrosActivos}
+              onClearFilters={limpiarFiltros}
+              onEdit={(gasto) => setEditando(gasto)}
+              onDelete={(gasto) => setPendienteEliminar(gasto)}
+            />
           </div>
-          <GastosTable
-            gastos={gastos}
-            loading={loading}
-            hasFilters={hayFiltrosActivos}
-            onClearFilters={limpiarFiltros}
-            onEdit={(gasto) => setEditando(gasto)}
-            onDelete={(gasto) => setPendienteEliminar(gasto)}
-          />
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       {crearAbierto ? (
         <div
